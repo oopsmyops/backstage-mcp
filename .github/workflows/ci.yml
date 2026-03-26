@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build bundle
+        run: npm run build
+
+      - name: Verify bundle size
+        run: |
+          SIZE=$(stat --format=%s dist/backstage-mcp.mjs 2>/dev/null || stat -f%z dist/backstage-mcp.mjs)
+          echo "Bundle size: $(( SIZE / 1024 )) KB"
+          if [ "$SIZE" -gt 524288 ]; then
+            echo "::error::Bundle exceeds 512 KB limit ($SIZE bytes)"
+            exit 1
+          fi
+
+      - name: Verify bundle runs
+        run: |
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}' \
+            | BACKSTAGE_BASE_URL=http://localhost:7007 BACKSTAGE_TOKEN=test timeout 5 node dist/backstage-mcp.mjs 2>/dev/null \
+            | grep -q '"protocolVersion"'

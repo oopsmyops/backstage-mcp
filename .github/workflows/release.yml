@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build bundle
+        run: npm run build
+
+      - name: Get bundle info
+        id: bundle
+        run: |
+          SIZE=$(stat --format=%s dist/backstage-mcp.mjs)
+          SHA=$(sha256sum dist/backstage-mcp.mjs | cut -d' ' -f1)
+          echo "size=$(( SIZE / 1024 ))" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Upload binary to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            dist/backstage-mcp.mjs \
+            --clobber
+
+      - name: Update release notes with artifact info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh release view "${{ github.event.release.tag_name }}" --json body -q .body)
+          ARTIFACT_INFO="
+
+          ---
+
+          ### Binary
+
+          | File | Size | SHA-256 |
+          |------|------|---------|
+          | \`backstage-mcp.mjs\` | ${{ steps.bundle.outputs.size }} KB | \`${{ steps.bundle.outputs.sha256 }}\` |
+
+          **Usage:**
+          \`\`\`bash
+          # Download
+          curl -LO https://github.com/\${{ github.repository }}/releases/download/\${{ github.event.release.tag_name }}/backstage-mcp.mjs
+          chmod +x backstage-mcp.mjs
+
+          # Run
+          BACKSTAGE_BASE_URL=https://your-backstage.example.com BACKSTAGE_TOKEN=your-token node backstage-mcp.mjs
+          \`\`\`"
+          echo "${EXISTING}${ARTIFACT_INFO}" | gh release edit "${{ github.event.release.tag_name }}" --notes-file -
