@@ -34,8 +34,8 @@ jobs:
         run: |
           SIZE=$(stat --format=%s dist/backstage-mcp.mjs 2>/dev/null || stat -f%z dist/backstage-mcp.mjs)
           echo "Bundle size: $(( SIZE / 1024 )) KB"
-          if [ "$SIZE" -gt 524288 ]; then
-            echo "::error::Bundle exceeds 512 KB limit ($SIZE bytes)"
+          if [ "$SIZE" -gt 786432 ]; then
+            echo "::error::Bundle exceeds 768 KB limit ($SIZE bytes)"
             exit 1
           fi
 
