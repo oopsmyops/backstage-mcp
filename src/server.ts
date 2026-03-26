@@ -227,7 +227,7 @@ export function createServer(config: Config): McpServer {
           "Template entity reference, e.g. 'template:default/create-react-app'"
         ),
       values: z
-        .record(z.unknown())
+        .record(z.string(), z.unknown())
         .describe(
           "Template parameter values as key-value pairs. Must match the schema returned by get_template."
         ),

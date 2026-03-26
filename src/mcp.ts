@@ -8,7 +8,6 @@
  */
 
 import { z, type ZodRawShape, type ZodObject } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { createInterface } from "node:readline";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
@@ -63,7 +62,7 @@ export class McpServer {
     handler: (args: z.infer<ZodObject<T>>) => Promise<ToolResult>
   ): void {
     const zodSchema = z.object(schema);
-    const jsonSchema = zodToJsonSchema(zodSchema, { target: "openApi3" });
+    const jsonSchema = z.toJSONSchema(zodSchema, { target: "draft-07" });
 
     this.tools.set(name, {
       name,

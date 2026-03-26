@@ -2,12 +2,12 @@ import { z } from "zod";
 
 const ConfigSchema = z.object({
   backstageBaseUrl: z
-    .string({ required_error: "BACKSTAGE_BASE_URL is required" })
-    .url("BACKSTAGE_BASE_URL must be a valid URL")
+    .string({ error: "BACKSTAGE_BASE_URL is required" })
+    .url({ error: "BACKSTAGE_BASE_URL must be a valid URL" })
     .transform((url) => url.replace(/\/$/, "")), // strip trailing slash
   backstageToken: z
-    .string({ required_error: "BACKSTAGE_TOKEN is required" })
-    .min(1, "BACKSTAGE_TOKEN must not be empty"),
+    .string({ error: "BACKSTAGE_TOKEN is required" })
+    .min(1, { error: "BACKSTAGE_TOKEN must not be empty" }),
   transport: z.enum(["stdio", "http"]).default("stdio"),
   port: z.coerce.number().int().min(1).max(65535).default(3000),
   host: z.string().default("127.0.0.1"),
