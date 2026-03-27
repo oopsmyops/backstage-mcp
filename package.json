@@ -1,6 +1,6 @@
 {
   "name": "backstage-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Standalone MCP server for Backstage — catalog, scaffolder, and TechDocs tools for LLM clients",
   "license": "MIT",
   "type": "module",
