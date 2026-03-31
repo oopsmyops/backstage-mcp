@@ -6,7 +6,7 @@
 
 A standalone MCP server that bridges LLM clients with your Backstage developer portal.
 
-No Backstage plugin installation required — runs as a single file (~200 KB), zero runtime dependencies, and connects to Backstage's existing REST APIs.
+No Backstage plugin installation required — runs as a single file (~500 KB), zero runtime dependencies, and connects to Backstage's existing REST APIs.
 
 ## Features
 
