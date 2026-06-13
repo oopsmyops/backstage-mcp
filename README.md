@@ -284,6 +284,122 @@ Backstage has an [official MCP plugin](https://www.npmjs.com/package/@backstage/
 
 **Use this project** if you can't or don't want to modify your Backstage backend. **Use the official plugin** if you control the Backstage instance and want tighter integration.
 
+## Backstage Assistant Plugins
+
+This repo also includes a pair of Backstage plugins that embed the same tools directly into your Backstage UI as an AI chat assistant:
+
+| Plugin | Path | Description |
+|--------|------|-------------|
+| [`@oopsmyops/backstage-plugin-assistant`](plugins/backstage-assistant/) | Frontend | Floating, draggable chat widget with streaming responses and a model picker |
+| [`@oopsmyops/backstage-plugin-assistant-backend`](plugins/backstage-assistant-backend/) | Backend | Multi-provider LLM orchestration (Bedrock, Azure AI Foundry, any OpenAI-compatible API) + tool execution |
+
+Key capabilities:
+- **Multi-provider, no proxy** — Amazon Bedrock and Azure AI Foundry natively, plus any OpenAI-compatible API, all via the [Vercel AI SDK](https://ai-sdk.dev). Configure several models and a fallback chain.
+- **Pick the model in the UI** — users choose among the configured models from a dropdown; the choice is remembered per browser.
+- **Streaming SSE** — token-by-token response rendering
+- **User-aware** — automatically resolves identity and group memberships for ownership queries
+- **Resizable UI** — drag from any edge/corner, fullscreen toggle, translucent backdrop
+- **Internal navigation** — entity links route via SPA (no page reload)
+- **Conversation persistence** — chat history survives page navigation
+- **Template execution** — guided scaffolder workflow with OAuth token injection
+
+### Install the plugins
+
+The plugins are published to the **oopsmyops GitHub Packages** npm registry, so a
+one-time auth setup is needed before npm/yarn can fetch them.
+
+Add these lines to your Backstage app's `.npmrc` (or `~/.npmrc`) — a template is
+in [`.npmrc.example`](./.npmrc.example):
+
+```ini
+@oopsmyops:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Using `${GITHUB_TOKEN}` (npm/yarn expand env vars in `.npmrc`) keeps the token
+out of the file. Then provide the token one of these ways:
+
+**Option A — reuse the GitHub CLI (recommended for developers):**
+
+```bash
+gh auth refresh -h github.com -s read:packages   # appends the scope; keeps existing ones
+export GITHUB_TOKEN=$(gh auth token)
+```
+
+**Option B — a personal access token:** create a PAT (classic) with the
+`read:packages` scope at <https://github.com/settings/tokens>, then
+`export GITHUB_TOKEN=ghp_yourtoken`.
+
+> For CI, use a dedicated PAT or, inside GitHub Actions, the built-in
+> `secrets.GITHUB_TOKEN` — as this repo's `publish-plugins.yml` workflow does.
+
+Install into your Backstage app:
+
+```bash
+# frontend app
+yarn --cwd packages/app add @oopsmyops/backstage-plugin-assistant
+# backend
+yarn --cwd packages/backend add @oopsmyops/backstage-plugin-assistant-backend
+```
+
+Wire them up — backend (`packages/backend/src/index.ts`):
+
+```ts
+backend.add(import('@oopsmyops/backstage-plugin-assistant-backend'));
+```
+
+Frontend (new frontend system, `packages/app/src/App.tsx`):
+
+```ts
+import assistantPlugin from '@oopsmyops/backstage-plugin-assistant';
+// add `assistantPlugin` to your createApp({ features: [...] })
+```
+
+### Configure models
+
+The backend reads `assistant.llm.models[]` from `app-config.yaml`. Each entry is
+selectable in the UI; mark one `default: true`. Use `assistant.llm.fallback` to
+list model ids to try (in order) when the selected model errors.
+
+```yaml
+assistant:
+  systemPrompt: 'Optional extra deployment-specific instructions.'
+  llm:
+    maxConcurrent: 5            # max concurrent LLM calls (default 5)
+    fallback: [groq-llama]      # tried, in order, if the selected model fails
+    models:
+      - id: claude-bedrock
+        label: Claude Sonnet (Bedrock)
+        provider: bedrock
+        model: anthropic.claude-sonnet-4-6
+        region: us-east-1
+        apiKey: ${AWS_BEARER_TOKEN_BEDROCK}   # optional; omit to use the AWS credential chain
+        default: true
+
+      - id: gpt-azure
+        label: GPT-5.1 (Azure AI Foundry)
+        provider: azure
+        model: gpt-5.1                         # your Azure deployment name
+        resourceName: my-foundry-resource      # https://my-foundry-resource.openai.azure.com
+        apiKey: ${AZURE_OPENAI_API_KEY}
+
+      - id: groq-llama
+        label: Llama 3.3 70B (Groq)
+        provider: openai-compatible            # any OpenAI-shaped API, no proxy
+        model: llama-3.3-70b-versatile
+        baseUrl: https://api.groq.com/openai/v1
+        apiKey: ${GROQ_API_KEY}
+```
+
+Provider keys:
+- `bedrock` — `model`, `region`, optional `apiKey` (a Bedrock API key / `AWS_BEARER_TOKEN_BEDROCK`; omit to use the standard AWS credential chain).
+- `azure` — `model` (deployment name) and either `resourceName` or `baseUrl`, plus `apiKey`. Targets Azure AI Foundry's OpenAI v1-compatible endpoint.
+- `openai-compatible` — `model`, `baseUrl`, optional `apiKey`. Works with OpenAI, Groq, Together, OpenRouter, vLLM, LiteLLM, etc.
+
+If `assistant.llm.models[]` is omitted, the plugin keeps reading the legacy
+`assistant.llm.provider` / `bedrock` / `litellm` keys for backward compatibility,
+and falls back to an offline mock model when nothing is configured.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR guidelines.

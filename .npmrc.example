@@ -1,0 +1,17 @@
+# Consumer .npmrc for installing the @oopsmyops Backstage Assistant plugins
+# from GitHub Packages. Copy these lines into your Backstage app's .npmrc
+# (or ~/.npmrc).
+#
+# Provide GITHUB_TOKEN via your environment so the token never lands in a file:
+#
+#   Option A (developers, reuse the GitHub CLI):
+#     gh auth refresh -h github.com -s read:packages   # appends the scope
+#     export GITHUB_TOKEN=$(gh auth token)
+#
+#   Option B (PAT): create a classic token with the `read:packages` scope at
+#     https://github.com/settings/tokens, then  export GITHUB_TOKEN=ghp_xxx
+#
+# You need read access to the oopsmyops GitHub Packages registry.
+
+@oopsmyops:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}

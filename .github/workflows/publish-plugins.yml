@@ -1,0 +1,47 @@
+name: Publish plugins to GitHub Packages
+
+# Publishes the two Backstage Assistant plugins to the repo owner's GitHub
+# Packages npm registry (@oopsmyops) when a GitHub Release is published.
+# Can also be triggered manually once the plugin versions are bumped.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - plugins/backstage-assistant
+          - plugins/backstage-assistant-backend
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@oopsmyops'
+
+      - name: Install dependencies
+        # Backstage's @backstage/cli pulls peer ranges npm rejects by default.
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        # npm publish runs the plugin's prepack/postpack (backstage-cli) which
+        # rewrites package.json to point at dist for the published tarball.
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
