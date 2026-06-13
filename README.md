@@ -4,369 +4,64 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js 20+](https://img.shields.io/badge/node-20%2B-brightgreen)](https://nodejs.org)
 
-A standalone MCP server that bridges LLM clients with your Backstage developer portal.
+Bring your Backstage developer portal to AI — two ways:
 
-No Backstage plugin installation required — runs as a single file (~500 KB), zero runtime dependencies, and connects to Backstage's existing REST APIs.
+- **🤖 Backstage Assistant plugins** — an in-portal AI chat widget (frontend + backend Backstage plugins) with multi-provider LLM support, a UI model picker, and the full catalog / scaffolder / TechDocs toolset.
+- **🔌 Standalone MCP server** — a single ~550 KB file exposing the same Backstage tools to external MCP clients (Claude, Cursor, VS Code, Windsurf) with no changes to your Backstage instance.
 
-## Features
+---
 
-- **Catalog** — search components, systems, groups, users; get full entity details with resolved API relations
-- **API Discovery** — list and retrieve OpenAPI, AsyncAPI, GraphQL, and gRPC specs for writing integration code
-- **Scaffolder** — browse templates, inspect parameter schemas, execute templates with guided input collection and inline validation
-- **TechDocs** — trigger renders and retrieve documentation as plain text
-- **Diagnostics** — `check_connection` tool to verify token and connectivity
+## 🤖 Backstage Assistant plugins
 
-## Tools
+An AI assistant embedded directly in your Backstage UI.
 
-| Tool | Description |
-|------|-------------|
-| `check_connection` | Verify Backstage connectivity and token identity |
-| `search_catalog` | Search entities by query, kind, tags, owner |
-| `get_entity` | Full entity details with resolved relations |
-| `list_api_specs` | Browse API entities by type and owner |
-| `get_api_spec` | Retrieve raw OpenAPI/AsyncAPI spec content |
-| `list_templates` | Browse scaffolder templates |
-| `get_template` | Get template parameter schema |
-| `run_template` | Execute template with inline validation |
-| `list_tasks` | List scaffolder task executions, filter by user |
-| `get_task_status` | Poll scaffolder task progress and logs |
-| `get_techdocs` | Retrieve rendered TechDocs as plain text |
+| Package | Role | |
+| --- | --- | --- |
+| [`@oopsmyops/backstage-plugin-assistant`](plugins/backstage-assistant/) | Frontend | Floating chat widget + model picker |
+| [`@oopsmyops/backstage-plugin-assistant-backend`](plugins/backstage-assistant-backend/) | Backend | LLM orchestration + Backstage tools |
 
-## Prerequisites
+![Backstage Assistant chat widget](plugins/backstage-assistant/docs/assistant-widget.png)
 
-- Node.js 20+
-- A running Backstage instance
-- A Backstage service account token (or personal token)
+<!-- TODO: replace with a real screenshot of the open chat widget -->
 
-## Installation
+**Highlights**
 
-### Option 1 — Download the pre-built binary (recommended)
-
-Grab the single-file binary from the [latest release](https://github.com/oopsmyops/backstage-mcp/releases/latest):
-
-```bash
-curl -LO https://github.com/oopsmyops/backstage-mcp/releases/latest/download/backstage-mcp.mjs
-chmod +x backstage-mcp.mjs
-```
-
-That's it. No `npm install`, no `node_modules` — just Node.js 20+ and the single file.
-
-### Option 2 — Build from source
-
-```bash
-git clone https://github.com/oopsmyops/backstage-mcp.git
-cd backstage-mcp
-npm install
-npm run build
-```
-
-This produces a **single bundled file** at `dist/backstage-mcp.mjs` (~200 KB) with all dependencies inlined. No `node_modules` needed at runtime.
-
-## Configuration
-
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-
-```bash
-BACKSTAGE_BASE_URL=https://your-backstage.example.com
-BACKSTAGE_TOKEN=your-token-here
-MCP_TRANSPORT=stdio         # or "http" for production
-```
-
-### Getting a Backstage Token
-
-**Option 1 — Service account token** (recommended for production):
-In your Backstage `app-config.yaml`, create a static token:
-```yaml
-backend:
-  auth:
-    externalAccess:
-      - type: static
-        options:
-          token: ${BACKSTAGE_MCP_TOKEN}
-          subject: backstage-mcp-server
-```
-
-**Option 2 — Guest token** (for demo/development):
-```bash
-curl -s https://your-backstage.example.com/api/auth/guest/refresh | jq -r '.backstageIdentity.token'
-```
-
-**Option 3 — User token** (for local development):
-Log in to your Backstage instance, open DevTools → Application → Local Storage, and copy the `@backstage/core-plugin-api:SignInPage:token` value.
-
-## Usage
-
-### Claude Code CLI
-
-The quickest way to add the server:
-
-```bash
-claude mcp add backstage-mcp \
-  -e BACKSTAGE_BASE_URL=https://your-backstage.example.com \
-  -e BACKSTAGE_TOKEN=your-token-here \
-  -- node /absolute/path/to/backstage-mcp/dist/backstage-mcp.mjs
-```
-
-To verify it's registered:
-
-```bash
-claude mcp list
-```
-
-To remove:
-
-```bash
-claude mcp remove backstage-mcp
-```
-
-### MCP Configuration File (Generic)
-
-Most MCP clients (Claude Desktop, Cursor, Windsurf, VS Code, etc.) support a JSON configuration. Add the following to your client's MCP config file:
-
-```json
-{
-  "mcpServers": {
-    "backstage-mcp": {
-      "command": "node",
-      "args": ["/absolute/path/to/backstage-mcp/dist/backstage-mcp.mjs"],
-      "env": {
-        "BACKSTAGE_BASE_URL": "https://your-backstage.example.com",
-        "BACKSTAGE_TOKEN": "your-token-here"
-      }
-    }
-  }
-}
-```
-
-Common config file locations:
-
-| Client | Config file |
-|--------|-------------|
-| Claude Code | `~/.claude.json` or `.claude/mcp.json` in project |
-| Cursor | `.cursor/mcp.json` in project root |
-| VS Code | `.vscode/mcp.json` in project root |
-| Windsurf | `~/.windsurf/mcp.json` |
-| Generic | Check your client's MCP documentation |
-
-### HTTP Transport (production)
-
-For remote or shared deployments, use the HTTP transport:
-
-```bash
-BACKSTAGE_BASE_URL=https://your-backstage.example.com \
-BACKSTAGE_TOKEN=your-token-here \
-MCP_TRANSPORT=http \
-PORT=3000 \
-node dist/backstage-mcp.mjs
-```
-
-The server listens on `http://127.0.0.1:3000/mcp`. Health check: `GET /health`.
-
-Point your MCP client at the HTTP endpoint:
-```json
-{
-  "mcpServers": {
-    "backstage-mcp": {
-      "url": "http://localhost:3000/mcp"
-    }
-  }
-}
-```
-
-### Development
-
-```bash
-npm run dev   # tsx watch mode — auto-restarts on file changes
-```
-
-## Deploying the Bundle
-
-The `dist/backstage-mcp.mjs` file is fully self-contained. To deploy:
-
-```bash
-# Copy just the single file — no node_modules needed
-scp dist/backstage-mcp.mjs server:/opt/backstage-mcp/
-
-# Run on the server (only requires Node.js 20+)
-BACKSTAGE_BASE_URL=https://backstage.internal \
-BACKSTAGE_TOKEN=xxx \
-MCP_TRANSPORT=http \
-node /opt/backstage-mcp/backstage-mcp.mjs
-```
-
-For Docker:
-
-```dockerfile
-FROM node:22-alpine
-COPY dist/backstage-mcp.mjs /app/backstage-mcp.mjs
-ENV MCP_TRANSPORT=http
-EXPOSE 3000
-CMD ["node", "/app/backstage-mcp.mjs"]
-```
-
-Image size: ~60 MB (node:alpine) + 200 KB (our code).
-
-## Example Conversations
-
-**Find all APIs owned by a team:**
-> "What APIs does the payments team own?"
-
-**Understand a service's dependencies:**
-> "What external APIs does the checkout-service consume?"
-
-**Create a new service:**
-> "Create a new Node.js microservice using our standard template"
-
-**Read documentation:**
-> "What does the payment-service README say about authentication?"
-
-**Write integration code:**
-> "I need to integrate with the User Management API in TypeScript"
-
-## Configuration Reference
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `BACKSTAGE_BASE_URL` | Yes | — | Base URL of your Backstage instance |
-| `BACKSTAGE_TOKEN` | Yes | — | Bearer token for authentication |
-| `MCP_TRANSPORT` | No | `stdio` | Transport: `stdio` or `http` |
-| `PORT` | No | `3000` | HTTP port (when `MCP_TRANSPORT=http`) |
-| `HOST` | No | `127.0.0.1` | HTTP host (when `MCP_TRANSPORT=http`) |
-| `CACHE_TTL_SECONDS` | No | `60` | Entity cache TTL in seconds (0 = disabled) |
-| `REQUEST_TIMEOUT_MS` | No | `10000` | Backstage API request timeout |
-
-## Troubleshooting
-
-**"Authentication failed" error:**
-- Check `BACKSTAGE_TOKEN` is valid and not expired
-- Ensure the token has `catalog.entity.read` permission
-- Run `check_connection` tool for a detailed diagnosis
-
-**Entity not found (404):**
-- Verify the entity exists in your Backstage catalog
-- Check the `entityRef` format: `kind:namespace/name` (e.g. `component:default/my-service`)
-- The namespace is almost always `default`
-
-**TechDocs returns 404:**
-- The entity must have a `backstage.io/techdocs-ref` annotation in its `catalog-info.yaml`
-- Example: `backstage.io/techdocs-ref: dir:.`
-
-**Templates not showing parameters:**
-- Some templates use external parameter files; `get_template` returns what Backstage has ingested
-- Re-register the template location in Backstage if content seems stale
-
-**Timeout errors:**
-- Increase `REQUEST_TIMEOUT_MS` (e.g., `30000` for slow instances)
-- Reduce `limit` parameter in search calls
-- Check Backstage instance health
-
-**Claude Code "Failed to reconnect":**
-- Verify with `claude mcp list` that the server is registered
-- Check that the path to `dist/backstage-mcp.mjs` is absolute
-- Ensure env vars are set (especially `BACKSTAGE_BASE_URL` and `BACKSTAGE_TOKEN`)
-
-## How this differs from `@backstage/plugin-mcp-actions-backend`
-
-Backstage has an [official MCP plugin](https://www.npmjs.com/package/@backstage/plugin-mcp-actions-backend) that runs **inside** the Backstage backend. Here's when to use which:
-
-| | `backstage-mcp` (this project) | `@backstage/plugin-mcp-actions-backend` |
-|---|---|---|
-| Install into Backstage? | No — fully standalone | Yes — requires backend code change |
-| Backstage version | Any (uses REST APIs) | Requires new backend system |
-| Auth | Static tokens | Static tokens + Dynamic Client Registration |
-| Deployment | Single file, anywhere | Inside Backstage process |
-
-**Use this project** if you can't or don't want to modify your Backstage backend. **Use the official plugin** if you control the Backstage instance and want tighter integration.
-
-## Backstage Assistant Plugins
-
-This repo also includes a pair of Backstage plugins that embed the same tools directly into your Backstage UI as an AI chat assistant:
-
-| Plugin | Path | Description |
-|--------|------|-------------|
-| [`@oopsmyops/backstage-plugin-assistant`](plugins/backstage-assistant/) | Frontend | Floating, draggable chat widget with streaming responses and a model picker |
-| [`@oopsmyops/backstage-plugin-assistant-backend`](plugins/backstage-assistant-backend/) | Backend | Multi-provider LLM orchestration (Bedrock, Azure AI Foundry, any OpenAI-compatible API) + tool execution |
-
-Key capabilities:
-- **Multi-provider, no proxy** — Amazon Bedrock and Azure AI Foundry natively, plus any OpenAI-compatible API, all via the [Vercel AI SDK](https://ai-sdk.dev). Configure several models and a fallback chain.
-- **Pick the model in the UI** — users choose among the configured models from a dropdown; the choice is remembered per browser.
-- **Streaming SSE** — token-by-token response rendering
-- **User-aware** — automatically resolves identity and group memberships for ownership queries
-- **Resizable UI** — drag from any edge/corner, fullscreen toggle, translucent backdrop
-- **Internal navigation** — entity links route via SPA (no page reload)
-- **Conversation persistence** — chat history survives page navigation
-- **Template execution** — guided scaffolder workflow with OAuth token injection
+- Native **Amazon Bedrock** and **Azure AI Foundry**, plus any **OpenAI-compatible** API (no proxy), with an ordered fallback chain — all via the [Vercel AI SDK](https://ai-sdk.dev).
+- Pick the model from the UI; the choice is remembered per browser.
+- Streaming responses, structured result cards, internal entity links, and guided scaffolder runs with an OAuth popup for VCS tokens.
 
 ### Install the plugins
 
-The plugins are published to the **oopsmyops GitHub Packages** npm registry, so a
-one-time auth setup is needed before npm/yarn can fetch them.
-
-Add these lines to your Backstage app's `.npmrc` (or `~/.npmrc`) — a template is
-in [`.npmrc.example`](./.npmrc.example):
+Published to the **oopsmyops GitHub Packages** registry. Add the registry auth to
+your Backstage app's `.npmrc` (template: [`.npmrc.example`](./.npmrc.example)):
 
 ```ini
 @oopsmyops:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
-Using `${GITHUB_TOKEN}` (npm/yarn expand env vars in `.npmrc`) keeps the token
-out of the file. Then provide the token one of these ways:
-
-**Option A — reuse the GitHub CLI (recommended for developers):**
+Provide `GITHUB_TOKEN` via the GitHub CLI (`gh auth refresh -h github.com -s read:packages && export GITHUB_TOKEN=$(gh auth token)`) or a PAT with `read:packages`. Then:
 
 ```bash
-gh auth refresh -h github.com -s read:packages   # appends the scope; keeps existing ones
-export GITHUB_TOKEN=$(gh auth token)
-```
-
-**Option B — a personal access token:** create a PAT (classic) with the
-`read:packages` scope at <https://github.com/settings/tokens>, then
-`export GITHUB_TOKEN=ghp_yourtoken`.
-
-> For CI, use a dedicated PAT or, inside GitHub Actions, the built-in
-> `secrets.GITHUB_TOKEN` — as this repo's `publish-plugins.yml` workflow does.
-
-Install into your Backstage app:
-
-```bash
-# frontend app
 yarn --cwd packages/app add @oopsmyops/backstage-plugin-assistant
-# backend
 yarn --cwd packages/backend add @oopsmyops/backstage-plugin-assistant-backend
 ```
 
-Wire them up — backend (`packages/backend/src/index.ts`):
-
 ```ts
+// packages/backend/src/index.ts
 backend.add(import('@oopsmyops/backstage-plugin-assistant-backend'));
-```
 
-Frontend (new frontend system, `packages/app/src/App.tsx`):
-
-```ts
+// packages/app/src/App.tsx — new frontend system
 import assistantPlugin from '@oopsmyops/backstage-plugin-assistant';
-// add `assistantPlugin` to your createApp({ features: [...] })
+// add `assistantPlugin` to createApp({ features: [...] })
 ```
 
 ### Configure models
 
-The backend reads `assistant.llm.models[]` from `app-config.yaml`. Each entry is
-selectable in the UI; mark one `default: true`. Use `assistant.llm.fallback` to
-list model ids to try (in order) when the selected model errors.
-
 ```yaml
 assistant:
-  systemPrompt: 'Optional extra deployment-specific instructions.'
   llm:
-    maxConcurrent: 5            # max concurrent LLM calls (default 5)
-    fallback: [groq-llama]      # tried, in order, if the selected model fails
+    fallback: [groq-llama]          # tried, in order, if the selected model fails
     models:
       - id: claude-bedrock
         label: Claude Sonnet (Bedrock)
@@ -375,34 +70,78 @@ assistant:
         region: us-east-1
         apiKey: ${AWS_BEARER_TOKEN_BEDROCK}   # optional; omit to use the AWS credential chain
         default: true
-
       - id: gpt-azure
         label: GPT-5.1 (Azure AI Foundry)
         provider: azure
-        model: gpt-5.1                         # your Azure deployment name
-        resourceName: my-foundry-resource      # https://my-foundry-resource.openai.azure.com
+        model: gpt-5.1                         # Azure deployment name
+        resourceName: my-foundry-resource
         apiKey: ${AZURE_OPENAI_API_KEY}
-
       - id: groq-llama
         label: Llama 3.3 70B (Groq)
-        provider: openai-compatible            # any OpenAI-shaped API, no proxy
+        provider: openai-compatible
         model: llama-3.3-70b-versatile
         baseUrl: https://api.groq.com/openai/v1
         apiKey: ${GROQ_API_KEY}
 ```
 
-Provider keys:
-- `bedrock` — `model`, `region`, optional `apiKey` (a Bedrock API key / `AWS_BEARER_TOKEN_BEDROCK`; omit to use the standard AWS credential chain).
-- `azure` — `model` (deployment name) and either `resourceName` or `baseUrl`, plus `apiKey`. Targets Azure AI Foundry's OpenAI v1-compatible endpoint.
-- `openai-compatible` — `model`, `baseUrl`, optional `apiKey`. Works with OpenAI, Groq, Together, OpenRouter, vLLM, LiteLLM, etc.
+📖 **Full documentation:** [frontend plugin README](plugins/backstage-assistant/README.md) · [backend plugin README](plugins/backstage-assistant-backend/README.md)
 
-If `assistant.llm.models[]` is omitted, the plugin keeps reading the legacy
-`assistant.llm.provider` / `bedrock` / `litellm` keys for backward compatibility,
-and falls back to an offline mock model when nothing is configured.
+---
+
+## 🔌 Standalone MCP server
+
+A single-file MCP server exposing 11 Backstage tools (catalog search, entity
+details, API specs, scaffolder templates + tasks, TechDocs) to any MCP client.
+No Backstage install required — it connects through Backstage's REST APIs.
+
+```bash
+# Download the latest binary and run it
+curl -LO https://github.com/oopsmyops/backstage-mcp/releases/latest/download/backstage-mcp.mjs
+BACKSTAGE_BASE_URL=https://your-backstage.example.com \
+BACKSTAGE_TOKEN=your-token \
+node backstage-mcp.mjs
+```
+
+Build from source instead: `npm install && npm run build` → `dist/backstage-mcp.mjs`.
+Need a token? Use a static service-account token (recommended) or a guest token.
+
+**Connect an MCP client** (Claude Desktop, Cursor, VS Code, Windsurf):
+
+```json
+{
+  "mcpServers": {
+    "backstage-mcp": {
+      "command": "node",
+      "args": ["/absolute/path/to/backstage-mcp.mjs"],
+      "env": {
+        "BACKSTAGE_BASE_URL": "https://your-backstage.example.com",
+        "BACKSTAGE_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+For remote/shared use, run with `MCP_TRANSPORT=http` and point clients at
+`http://localhost:3000/mcp` (health: `/health`).
+
+**Environment variables**
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `BACKSTAGE_BASE_URL` | yes | — | Base URL of your Backstage instance |
+| `BACKSTAGE_TOKEN` | yes | — | Bearer token for authentication |
+| `MCP_TRANSPORT` | no | `stdio` | `stdio` or `http` |
+| `PORT` | no | `3000` | HTTP port (when `MCP_TRANSPORT=http`) |
+| `HOST` | no | `127.0.0.1` | HTTP host (when `MCP_TRANSPORT=http`) |
+| `CACHE_TTL_SECONDS` | no | `60` | Entity cache TTL in seconds (0 = disabled) |
+| `REQUEST_TIMEOUT_MS` | no | `10000` | Backstage API request timeout |
+
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
