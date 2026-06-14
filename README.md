@@ -32,15 +32,33 @@ An AI assistant embedded directly in your Backstage UI.
 
 ### Install the plugins
 
-Published to the **oopsmyops GitHub Packages** registry. Add the registry auth to
-your Backstage app's `.npmrc` (template: [`.npmrc.example`](./.npmrc.example)):
+Published to the **oopsmyops GitHub Packages** registry. Configure the registry
+auth for the `@oopsmyops` scope.
+
+Provide `GITHUB_TOKEN` first (via the GitHub CLI:
+`gh auth refresh -h github.com -s read:packages && export GITHUB_TOKEN=$(gh auth token)`,
+or a PAT with `read:packages`). Even though the packages are public, GitHub
+Packages still requires a token to install.
+
+**Yarn (Backstage default — uses Yarn 4):** add to your app's `.yarnrc.yml`
+(Yarn reads `${GITHUB_TOKEN}` from the environment, so the token stays out of the file):
+
+```yaml
+npmScopes:
+  oopsmyops:
+    npmRegistryServer: 'https://npm.pkg.github.com'
+    npmAlwaysAuth: true
+    npmAuthToken: '${GITHUB_TOKEN}'
+```
+
+**npm:** add to your `.npmrc` (template: [`.npmrc.example`](./.npmrc.example)):
 
 ```ini
 @oopsmyops:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
-Provide `GITHUB_TOKEN` via the GitHub CLI (`gh auth refresh -h github.com -s read:packages && export GITHUB_TOKEN=$(gh auth token)`) or a PAT with `read:packages`. Then:
+Then add the packages:
 
 ```bash
 yarn --cwd packages/app add @oopsmyops/backstage-plugin-assistant
