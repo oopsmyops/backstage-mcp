@@ -23,7 +23,11 @@ export function createServer(config: Config): McpServer {
   const scaffolderTools = new ScaffolderTools(scaffolderClient);
   const techDocsTools = new TechDocsTools(techDocsClient);
 
-  const server = new McpServer("backstage-mcp", "0.1.0");
+  // __MCP_VERSION__ is injected from package.json at bundle time (see the
+  // `bundle` script). Under `tsx` dev mode it is undefined, so fall back.
+  const version =
+    typeof __MCP_VERSION__ !== "undefined" ? __MCP_VERSION__ : "dev";
+  const server = new McpServer("backstage-mcp", version);
 
   // ─── Diagnostic tool ────────────────────────────────────────────────────────
 
