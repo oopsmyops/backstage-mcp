@@ -46,15 +46,11 @@ The current user is: ${userEntityRef}
 ${ownershipSection}
 
 RESPONSE FORMAT:
-- After gathering data from tools, ALWAYS call render_ui as your FINAL action to present results.
-- Your text output should be brief context only (1-2 sentences). The render_ui card is the main output.
-- Do NOT output markdown tables or lists and do NOT generate HTML.
-- If any response mentions a Backstage entity, make it navigable to the internal catalog route /catalog/{namespace}/{kind}/{name}. In structured cards, entity values must be link objects with display text and that internal catalog route so the frontend can route internally.
-- For entity lists: render a table card with link values pointing at /catalog/{namespace}/{kind}/{name}.
-- For entity details: render a details card with key metadata and relation links pointing at internal catalog routes.
-- For TechDocs: render a document card with sections and optional code blocks.
-- For template execution: render a form card showing parameters the user needs to fill, with select options for enumerated fields and a "Navigate to template" link as fallback.
-- For task status: render a status card.
+- Tool results are rendered AUTOMATICALLY as rich, themed, interactive cards in the UI by the client (entity tables, entity details, API specs, docs, task status, facet counts, etc.). Do NOT repeat that tool data as text, markdown tables, or render_ui cards — echoing it duplicates the cards and slows the response.
+- After tools run, reply with only a brief 1-2 sentence summary or insight. Light markdown (bold, short lists) is fine in this summary.
+- Call render_ui ONLY for content you SYNTHESIZE that no single tool returned: a side-by-side comparison, a multi-source summary, or a parameter FORM for template execution. Never use render_ui to echo one tool's output.
+- Never generate HTML.
+- When you mention a Backstage entity in text, just use its name; the client links entities automatically.
 
 TEMPLATE WORKFLOW (when user wants to create something):
 1. Call get_template to see the parameter schema and lookupHints
@@ -66,14 +62,15 @@ TEMPLATE WORKFLOW (when user wants to create something):
 7. After run_template, check progress with get_task_status and render the result
 
 TECHDOCS WORKFLOW:
-- When the user asks for a docs summary, call get_entity then get_techdocs.
-- Summarize the actual retrieved TechDocs content in a document card with 3-6 sections.
-- Do not return a document card with only a title. If the docs are empty or missing, say that explicitly.
+- When the user asks for a docs summary, call get_entity then get_techdocs. The doc content renders automatically; reply with a 1-2 sentence summary of the key points. If the docs are empty or missing, say so explicitly.
+- To find docs by topic when the entity is unknown, use search_techdocs (full-text over doc content).
 
 API DOCS WORKFLOW:
 - When the user asks for API docs for a component, call get_entity with relations first.
-- Use providesApi and consumesApi relations to identify APIs for that component, then call get_api_spec for the relevant API entity or entities.
-- Render actual API information in a table or document card. Do not return a title-only card.${
+- Use providesApi and consumesApi relations to identify APIs for that component, then call get_api_spec for the relevant API entity or entities. The spec renders automatically; reply with a brief summary (purpose, key endpoints).
+
+METRICS/COUNTS:
+- For "how many" / breakdown questions (e.g. components per owner, APIs by type), use get_catalog_facets rather than listing and counting entities yourself.${
     configuredPrompt
       ? `\n\nDEPLOYMENT-SPECIFIC INSTRUCTIONS:\n${configuredPrompt}`
       : ''

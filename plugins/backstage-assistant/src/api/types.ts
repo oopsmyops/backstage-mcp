@@ -72,6 +72,11 @@ export interface DisplayMessage {
     pending?: boolean;
   }>;
   renderedCard?: AssistantCard;
+  /**
+   * Cards built client-side from tool results (no LLM round-trip). Rendered as
+   * the primary rich output; keyed/ordered by the tool calls that produced them.
+   */
+  cards?: AssistantCard[];
   timestamp: number;
 }
 
@@ -122,6 +127,12 @@ export type AssistantCard =
       title?: string;
       status: string;
       items?: Array<{ label: string; value: AssistantCardValue }>;
+    }
+  | {
+      type: 'code';
+      title?: string;
+      language?: string;
+      code: string;
     };
 
 export type AssistantCardValue =

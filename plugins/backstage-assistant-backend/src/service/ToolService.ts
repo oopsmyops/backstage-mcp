@@ -85,6 +85,10 @@ export class ToolService {
           return await this.getTaskStatus(args, api);
         case 'get_techdocs':
           return await this.getTechDocs(args, api);
+        case 'search_techdocs':
+          return await this.searchTechDocs(args, api);
+        case 'get_catalog_facets':
+          return await this.getCatalogFacets(args, api);
         default:
           return toolError(`Unknown tool: ${name}`);
       }
@@ -762,6 +766,55 @@ export class ToolService {
           '\n\n[...content truncated at 8,000 chars]'
         : content,
     });
+  }
+
+  private async searchTechDocs(
+    args: Record<string, unknown>,
+    api: BackstageApiClient,
+  ): Promise<ToolResult> {
+    const query = args.query as string | undefined;
+    if (!query) return toolError('query is required');
+    const limit = (args.limit as number) ?? 10;
+
+    const qs = new URLSearchParams({ term: query });
+    qs.append('types[0]', 'techdocs');
+
+    const data = await api.fetchJson<{
+      results?: Array<{ document?: Record<string, unknown> }>;
+    }>('search', `/query?${qs}`);
+
+    const results = (data.results ?? []).slice(0, limit).map(r => {
+      const doc = r.document ?? {};
+      const text = typeof doc.text === 'string' ? doc.text : undefined;
+      return {
+        title: doc.title ?? doc.name ?? 'Untitled',
+        text: text ? text.slice(0, 300) : undefined,
+        location: doc.location,
+      };
+    });
+
+    return toolSuccess({ results });
+  }
+
+  private async getCatalogFacets(
+    args: Record<string, unknown>,
+    api: BackstageApiClient,
+  ): Promise<ToolResult> {
+    const facets = args.facets as string[] | undefined;
+    if (!facets?.length) {
+      return toolError('facets is required, e.g. ["kind"] or ["spec.owner"]');
+    }
+    const filter = args.filter as string | undefined;
+
+    const qs = new URLSearchParams();
+    facets.forEach(f => qs.append('facet', f));
+    if (filter) qs.append('filter', filter);
+
+    const data = await api.fetchJson<{
+      facets: Record<string, Array<{ value: string; count: number }>>;
+    }>('catalog', `/entity-facets?${qs}`);
+
+    return toolSuccess({ facets: data.facets ?? {} });
   }
 
   private async callSearchCatalog(
@@ -1512,6 +1565,48 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
           default: false,
           description:
             'Force a TechDocs re-render before fetching. Use when docs may be stale.',
+        },
+      },
+    },
+  },
+  {
+    name: 'search_techdocs',
+    description:
+      'Full-text search across TechDocs documentation CONTENT (the text inside docs), not just catalog metadata. Use when the user wants to find documentation/pages that mention a topic but does not know which entity owns it. Returns matching doc pages with titles, snippets, and links. (Distinct from search_catalog, which only matches entity names/metadata, and get_techdocs, which needs a known entity.)',
+    inputSchema: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text query to match against documentation content.',
+        },
+        limit: {
+          type: 'number',
+          default: 10,
+          description: 'Maximum number of doc matches to return.',
+        },
+      },
+    },
+  },
+  {
+    name: 'get_catalog_facets',
+    description:
+      'Aggregate COUNTS of catalog entities grouped by one or more fields (e.g. kind, spec.type, spec.owner, spec.lifecycle). Use for summaries/metrics like "how many components per owner" or "count of APIs by type". Returns counts only, not entity lists. (Distinct from search_catalog, which lists entities and cannot aggregate.)',
+    inputSchema: {
+      type: 'object',
+      required: ['facets'],
+      properties: {
+        facets: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Fields to group by, e.g. ["kind"], ["spec.owner"], ["spec.type","spec.lifecycle"].',
+        },
+        filter: {
+          type: 'string',
+          description:
+            "Optional catalog filter to scope the counts, e.g. 'kind=component'.",
         },
       },
     },

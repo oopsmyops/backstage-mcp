@@ -5,7 +5,6 @@ import ReactMarkdown from 'react-markdown';
 import type { DisplayMessage } from '../../api/types';
 import { replaceEntityRefsWithLinks } from '../../util/entityLinkParser';
 import { AssistantCardRenderer } from './AssistantCardRenderer';
-import { ToolResultRenderer } from './ToolResultRenderer';
 
 const useStyles = makeStyles(theme => ({
   userBubble: {
@@ -126,7 +125,17 @@ function ToolCallBlock({ name, result, pending, classes }: ToolCallBlockProps) {
       {result && (
         <Collapse in={expanded}>
           <div className={classes.toolCallContent}>
-            <ToolResultRenderer content={result} />
+            {/* Raw result for debugging; rich rendering happens inline as cards. */}
+            <pre
+              style={{
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                fontSize: '0.72rem',
+              }}
+            >
+              {result}
+            </pre>
           </div>
         </Collapse>
       )}
@@ -175,6 +184,11 @@ export function MessageBubble({ message, onSubmitCard }: MessageBubbleProps) {
             {processedContent && (
               <ReactMarkdown>{processedContent}</ReactMarkdown>
             )}
+            {message.cards?.map((card, index) => (
+              <div className={classes.uiBlock} key={index}>
+                <AssistantCardRenderer card={card} onSubmit={onSubmitCard} />
+              </div>
+            ))}
             {message.renderedCard && (
               <div className={classes.uiBlock}>
                 <AssistantCardRenderer

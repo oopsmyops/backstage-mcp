@@ -9,6 +9,17 @@ import {
   Typography,
   makeStyles,
 } from '@material-ui/core';
+import {
+  MarkdownContent,
+  CodeSnippet,
+  Link as BackstageLink,
+  StatusOK,
+  StatusError,
+  StatusRunning,
+  StatusPending,
+  StatusAborted,
+  StatusWarning,
+} from '@backstage/core-components';
 import type {
   AssistantCard,
   AssistantCardValue,
@@ -156,7 +167,15 @@ function renderCardBody(
 ) {
   switch (card.type) {
     case 'text':
-      return <Typography variant="body2">{card.body}</Typography>;
+      return <MarkdownContent content={card.body} dialect="gfm" />;
+    case 'code':
+      return (
+        <CodeSnippet
+          text={card.code}
+          language={card.language || 'text'}
+          showCopyCodeButton
+        />
+      );
     case 'table':
       return <TableCard card={card} classes={classes} />;
     case 'details':
@@ -183,9 +202,11 @@ function renderCardBody(
                 <Typography variant="subtitle2">{section.heading}</Typography>
               )}
               {section.body && (
-                <Typography variant="body2">{section.body}</Typography>
+                <MarkdownContent content={section.body} dialect="gfm" />
               )}
-              {section.code && <pre className={classes.code}>{section.code}</pre>}
+              {section.code && (
+                <CodeSnippet text={section.code} language="text" showCopyCodeButton />
+              )}
             </Box>
           ))}
         </Box>
@@ -193,7 +214,7 @@ function renderCardBody(
     case 'status':
       return (
         <Box>
-          <span className={classes.status}>{card.status}</span>
+          <StatusChip status={card.status} />
           {card.items?.length ? (
             <dl className={classes.details}>
               {card.items.map(item => (
@@ -500,11 +521,33 @@ function SafeLink({
 }) {
   const safeHref = getSafeHref(href);
   if (!safeHref) return <span>{children}</span>;
+  // Backstage Link does SPA routing for internal ("/...") routes and renders a
+  // themed anchor for external ones.
   return (
-    <a className={classes.link} href={safeHref}>
+    <BackstageLink to={safeHref} className={classes.link}>
       {children}
-    </a>
+    </BackstageLink>
   );
+}
+
+function StatusChip({ status }: { status: string }) {
+  const s = status.toLowerCase();
+  if (/(ok|completed|success|healthy|passing|done)/.test(s)) {
+    return <StatusOK>{status}</StatusOK>;
+  }
+  if (/(fail|error)/.test(s)) {
+    return <StatusError>{status}</StatusError>;
+  }
+  if (/(process|running|in[_-]?progress|active)/.test(s)) {
+    return <StatusRunning>{status}</StatusRunning>;
+  }
+  if (/(open|pending|queued|waiting)/.test(s)) {
+    return <StatusPending>{status}</StatusPending>;
+  }
+  if (/(cancel|abort|skip)/.test(s)) {
+    return <StatusAborted>{status}</StatusAborted>;
+  }
+  return <StatusWarning>{status}</StatusWarning>;
 }
 
 function createInitialFieldValues(fields: NormalizedFormField[]) {

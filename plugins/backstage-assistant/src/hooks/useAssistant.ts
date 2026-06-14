@@ -13,6 +13,7 @@ import {
   loadSelectedModel,
   saveSelectedModel,
 } from '../util/storage';
+import { cardsFromToolResultText } from '../util/toolResultToCard';
 
 export interface OAuthRequest {
   provider: string;
@@ -156,6 +157,15 @@ export function useAssistant(conversationId: string) {
                     };
                   }
                   last.toolCalls = calls;
+                  // Build rich cards client-side from the tool result — no LLM
+                  // round-trip, so this adds no response-time cost.
+                  const built = cardsFromToolResultText(
+                    event.toolName,
+                    event.content,
+                  );
+                  if (built.length) {
+                    last.cards = [...(last.cards ?? []), ...built];
+                  }
                   break;
                 }
                 case 'ui_render':
