@@ -1,8 +1,14 @@
-name: Publish plugins to GitHub Packages
+name: Publish plugins to npm
 
-# Publishes the two Backstage Assistant plugins to the repo owner's GitHub
-# Packages npm registry (@oopsmyops) when a GitHub Release is published.
-# Can also be triggered manually once the plugin versions are bumped.
+# Publishes the two Backstage Assistant plugins to npmjs.org as public packages
+# using npm Trusted Publishing (OIDC) — no long-lived NPM_TOKEN required.
+#
+# Prerequisites (one-time, see README):
+#   1. Each package must already exist on npmjs (do the FIRST publish manually:
+#      `npm login` then `npm publish --access public` in each plugin dir).
+#   2. On npmjs.com → each package → Settings → Trusted publishing, add a
+#      GitHub Actions publisher: repo `oopsmyops/backstage-mcp`,
+#      workflow `publish-plugins.yml` (leave environment blank).
 on:
   release:
     types: [published]
@@ -13,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      id-token: write # required for OIDC trusted publishing + provenance
     strategy:
       fail-fast: false
       matrix:
@@ -28,20 +34,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@oopsmyops'
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Ensure npm supports OIDC (>= 11.5.1)
+        run: npm install -g npm@latest
 
       - name: Install dependencies
-        # Backstage's @backstage/cli pulls peer ranges npm rejects by default.
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Build
         run: npm run build
 
-      - name: Publish
-        # npm publish runs the plugin's prepack/postpack (backstage-cli) which
-        # rewrites package.json to point at dist for the published tarball.
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish (OIDC, public, with provenance)
+        run: npm publish --provenance --access public

@@ -25,12 +25,8 @@ backend plugin to be installed and configured.
 
 ## Installation
 
-These plugins are published to the **oopsmyops GitHub Packages** registry. Add
-the registry auth to your app's `.npmrc` first — see
-[the repository README](../../README.md#install-the-plugins) for the one-time
-`.npmrc` and token setup.
-
-Then add the package to your Backstage app:
+Published to **npmjs.org** as a public package — no token needed. Add it to your
+Backstage app:
 
 ```bash
 yarn --cwd packages/app add @oopsmyops/backstage-plugin-assistant
