@@ -3,6 +3,7 @@ import { useApi } from '@backstage/frontend-plugin-api';
 import { assistantApiRef } from '../api/AssistantApi';
 import type {
   DisplayMessage,
+  MessagePart,
   SseEvent,
   VcsTokens,
   ConversationMessage,
@@ -32,6 +33,21 @@ const MAX_HISTORY_TOOL_ARGUMENT_CHARS = 2_000;
 
 function nextId(): string {
   return `msg-${Date.now()}-${++messageCounter}`;
+}
+
+/** Append streamed text to the trailing text part (or start a new one). */
+function appendTextPart(
+  parts: MessagePart[] | undefined,
+  text: string,
+): MessagePart[] {
+  const arr = parts ? [...parts] : [];
+  const last = arr[arr.length - 1];
+  if (last && last.type === 'text') {
+    arr[arr.length - 1] = { type: 'text', text: last.text + text };
+  } else {
+    arr.push({ type: 'text', text });
+  }
+  return arr;
 }
 
 export function useAssistant(conversationId: string) {
@@ -132,6 +148,7 @@ export function useAssistant(conversationId: string) {
               switch (event.type) {
                 case 'text_delta':
                   last.content += event.content;
+                  last.parts = appendTextPart(last.parts, event.content);
                   break;
                 case 'tool_call':
                   last.toolCalls = [
@@ -158,21 +175,36 @@ export function useAssistant(conversationId: string) {
                   }
                   last.toolCalls = calls;
                   // Build rich cards client-side from the tool result — no LLM
-                  // round-trip, so this adds no response-time cost.
+                  // round-trip — and append them as parts in arrival order.
                   const built = cardsFromToolResultText(
                     event.toolName,
                     event.content,
                   );
                   if (built.length) {
-                    last.cards = [...(last.cards ?? []), ...built];
+                    last.parts = [
+                      ...(last.parts ?? []),
+                      ...built.map(card => ({ type: 'card' as const, card })),
+                    ];
                   }
                   break;
                 }
                 case 'ui_render':
-                  last.renderedCard = event.card;
+                  // The model's prose lives in its streamed reply; ignore
+                  // render_ui *text* cards (they only duplicate that text).
+                  // Keep structured synthesized cards (form, table, …).
+                  if (event.card.type !== 'text') {
+                    last.parts = [
+                      ...(last.parts ?? []),
+                      { type: 'card', card: event.card },
+                    ];
+                  }
                   break;
                 case 'error':
                   last.content += `\n\n**Error:** ${event.message}`;
+                  last.parts = appendTextPart(
+                    last.parts,
+                    `\n\n**Error:** ${event.message}`,
+                  );
                   break;
                 case 'done':
                   break;

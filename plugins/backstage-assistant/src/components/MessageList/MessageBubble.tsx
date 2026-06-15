@@ -181,22 +181,25 @@ export function MessageBubble({ message, onSubmitCard }: MessageBubbleProps) {
                 ))}
               </div>
             ) : null}
-            {processedContent && (
-              <ReactMarkdown>{processedContent}</ReactMarkdown>
-            )}
-            {message.cards?.map((card, index) => (
-              <div className={classes.uiBlock} key={index}>
-                <AssistantCardRenderer card={card} onSubmit={onSubmitCard} />
-              </div>
-            ))}
-            {message.renderedCard && (
-              <div className={classes.uiBlock}>
-                <AssistantCardRenderer
-                  card={message.renderedCard}
-                  onSubmit={onSubmitCard}
-                />
-              </div>
-            )}
+            {message.parts?.length
+              ? message.parts.map((part, index) =>
+                  part.type === 'text' ? (
+                    <ReactMarkdown key={index}>
+                      {replaceEntityRefsWithLinks(part.text)}
+                    </ReactMarkdown>
+                  ) : (
+                    <div className={classes.uiBlock} key={index}>
+                      <AssistantCardRenderer
+                        card={part.card}
+                        onSubmit={onSubmitCard}
+                      />
+                    </div>
+                  ),
+                )
+              : processedContent && (
+                  // Fallback for messages persisted before ordered parts existed.
+                  <ReactMarkdown>{processedContent}</ReactMarkdown>
+                )}
           </>
         )}
       </div>

@@ -5,8 +5,20 @@ import type {
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
+import TurndownService from 'turndown';
+import { gfm } from 'turndown-plugin-gfm';
 import type { ToolDefinition, ToolResult } from '../types';
 import { BackstageApiClient } from './BackstageApiClient';
+
+// Converts rendered TechDocs HTML into markdown so the UI renders real
+// structure (headings, lists, tables, code) instead of flattened text.
+const turndownService = new TurndownService({
+  headingStyle: 'atx',
+  codeBlockStyle: 'fenced',
+  bulletListMarker: '-',
+});
+turndownService.use(gfm);
+turndownService.remove(['script', 'style', 'nav', 'header', 'footer']);
 
 const DEFAULT_NAMESPACE = 'default';
 const TECHDOCS_MAX_CHARS = 8_000;
@@ -754,7 +766,7 @@ export class ToolService {
         .catch(() => html);
     }
 
-    const content = stripHtml(html);
+    const content = htmlToMarkdown(html);
     const truncated = content.length >= TECHDOCS_MAX_CHARS;
 
     return toolSuccess({
@@ -1272,23 +1284,17 @@ function toStringArray(value: unknown): string[] {
     : [];
 }
 
-function stripHtml(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
-    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
-    .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
-    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#x2F;/g, '/')
-    .replace(/\s+/g, ' ')
-    .trim();
+/** Extract the main TechDocs article so nav/sidebar/header don't leak in. */
+function extractMainHtml(html: string): string {
+  const article = html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i);
+  if (article) return article[1];
+  const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
+  if (main) return main[1];
+  return html;
+}
+
+function htmlToMarkdown(html: string): string {
+  return turndownService.turndown(extractMainHtml(html)).trim();
 }
 
 function toolSuccess(data: unknown): ToolResult {

@@ -77,8 +77,9 @@ function entityTableCards(obj: Record<string, unknown>): AssistantCard[] {
   const rowsSource = firstArray(obj, ['entities', 'apis', 'templates', 'items']);
   if (!rowsSource) return [];
   const entities = rowsSource as EntitySummary[];
+  // Empty result → render nothing; the model's reply explains "no results".
   if (entities.length === 0) {
-    return [{ type: 'text', body: 'No results found.' }];
+    return [];
   }
 
   return [
@@ -214,7 +215,7 @@ function docSearchCards(obj: Record<string, unknown>): AssistantCard[] {
     | Array<Record<string, unknown>>
     | undefined;
   if (!results || results.length === 0) {
-    return [{ type: 'text', body: 'No documentation matches found.' }];
+    return [];
   }
   return [
     {

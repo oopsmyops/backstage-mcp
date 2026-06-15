@@ -60,10 +60,22 @@ export type SseEvent =
   | { type: 'done'; usage: TokenUsage }
   | { type: 'error'; message: string };
 
+/**
+ * An assistant message is an ordered list of parts (text and cards interleaved
+ * in arrival order). Rendering them in order keeps cards stable while later text
+ * streams in — no reflow — and avoids duplicating prose across text + cards.
+ */
+export type MessagePart =
+  | { type: 'text'; text: string }
+  | { type: 'card'; card: AssistantCard };
+
 export interface DisplayMessage {
   id: string;
   role: 'user' | 'assistant';
+  /** Full assistant text (concatenation of text parts) — used for history/storage. */
   content: string;
+  /** Ordered render parts for assistant messages (text + client/LLM cards). */
+  parts?: MessagePart[];
   toolCalls?: Array<{
     id: string;
     name: string;
@@ -71,12 +83,6 @@ export interface DisplayMessage {
     result?: string;
     pending?: boolean;
   }>;
-  renderedCard?: AssistantCard;
-  /**
-   * Cards built client-side from tool results (no LLM round-trip). Rendered as
-   * the primary rich output; keyed/ordered by the tool calls that produced them.
-   */
-  cards?: AssistantCard[];
   timestamp: number;
 }
 

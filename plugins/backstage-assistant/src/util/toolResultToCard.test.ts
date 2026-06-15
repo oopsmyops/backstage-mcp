@@ -25,9 +25,9 @@ describe('toolResultToCard', () => {
     expect(row.owner).toBe('team-a');
   });
 
-  it('returns an empty-state text card when the list is empty', () => {
+  it('renders nothing when the list is empty (no noise card)', () => {
     const cards = toolResultToCard('search_catalog', { entities: [] });
-    expect(cards).toEqual([{ type: 'text', body: 'No results found.' }]);
+    expect(cards).toEqual([]);
   });
 
   it('maps get_entity to a details card including relation links', () => {
