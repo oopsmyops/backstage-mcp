@@ -8,17 +8,19 @@ const MAX_TOOL_RESULT_CHARS = 50_000;
 
 const RENDER_UI_TOOL = {
   name: 'render_ui',
-  description: 'Render a structured UI card to the user. ALWAYS call this as your LAST action. Do not generate HTML. Use table cards for entity/API/template lists, form cards for template parameters, document cards for TechDocs summaries, details cards for entity details, and status cards for tasks.',
+  description:
+    'Render an INTERACTIVE FORM to collect template parameters from the user. This is the ONLY use of render_ui. All other data (entity/API/template lists, entity details, TechDocs, task status) is rendered AUTOMATICALLY by the UI from tool results — never render those yourself. Do not generate HTML.',
   inputSchema: {
     type: 'object',
     properties: {
       card: {
         type: 'object',
-        description: 'A structured card. Supported types: text, table, details, form, document, status. Links must be objects like {"text":"payment-service","href":"/catalog/default/component/payment-service"}.',
+        description:
+          'A "form" card. One field per template parameter, with type/options/required from the schema. Pre-fetched lookupHints become select options.',
         properties: {
           type: {
             type: 'string',
-            enum: ['text', 'table', 'details', 'form', 'document', 'status'],
+            enum: ['form'],
           },
           title: { type: 'string' },
         },
@@ -46,9 +48,9 @@ The current user is: ${userEntityRef}
 ${ownershipSection}
 
 RESPONSE FORMAT:
-- Tool results are rendered AUTOMATICALLY as rich, themed cards in the UI (entity tables, entity details, API specs, docs, task status, facet counts, etc.). Do NOT repeat that tool data as text or markdown tables — just give a brief 1-2 sentence summary or insight (light markdown is fine).
-- NEVER call render_ui with a "text" card. ALL prose goes in your normal reply, never in a card — a render_ui text card is dropped by the UI and would only duplicate your reply.
-- Use render_ui ONLY for: (a) an interactive "form" card to collect template parameters, or (b) a structured card you SYNTHESIZE that no single tool returned (e.g. a side-by-side comparison "table"). Never use it to echo one tool's output.
+- Every tool result is rendered AUTOMATICALLY as a rich, themed card with working entity links (entity tables, entity details, API specs, docs, task status, facet counts, etc.). The user already sees these cards.
+- Your reply is PROSE ONLY: a brief 1-2 sentence summary or insight. Light markdown (bold, short lists) is fine. NEVER output a table — not as markdown, not as text, not via render_ui. Re-listing tool data is duplication and looks broken (your copy has no links). When you ran several searches, summarize in one sentence (e.g. "You own 12 components across 3 groups"); do not re-tabulate them.
+- render_ui is ONLY for collecting template parameters as an interactive "form". Never use it for anything else.
 - Never generate HTML.
 - When you mention a Backstage entity in text, just use its name; the client links entities automatically.
 

@@ -1,6 +1,6 @@
 {
   "name": "@oopsmyops/backstage-plugin-assistant",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Backstage frontend plugin providing an AI chat assistant widget with auto-discovery support",
   "license": "MIT",
   "main": "src/index.ts",
@@ -36,7 +36,7 @@
     "postpack": "backstage-cli package postpack"
   },
   "dependencies": {
-    "@backstage/core-components": "^0.16.0",
+    "@backstage/core-components": "^0.16.4",
     "@backstage/frontend-plugin-api": "^0.16.2",
     "@backstage/theme": "^0.6.0",
     "@material-ui/core": "^4.12.4",
@@ -47,8 +47,12 @@
     "@backstage/cli": "^0.36.2",
     "@types/jest": "^29.5.14",
     "@types/react": "^17.0.0 || ^18.0.0",
+    "esbuild": "^0.25.12",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.4",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {

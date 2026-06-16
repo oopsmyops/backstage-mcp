@@ -19,6 +19,22 @@ const turndownService = new TurndownService({
 });
 turndownService.use(gfm);
 turndownService.remove(['script', 'style', 'nav', 'header', 'footer']);
+// Pygments/codehilite wraps code in <table class="highlighttable"> (a line-number
+// cell + a code cell). The gfm tables plugin can't convert that and leaves the
+// raw <table> HTML, which then renders as literal tags. Intercept it and emit a
+// fenced code block instead. addRule takes priority over the gfm table rule
+// because turndown checks the most-recently-added rules first.
+turndownService.addRule('pygmentsHighlightTable', {
+  filter: node =>
+    node.nodeName === 'TABLE' &&
+    /(^|\s)highlighttable(\s|$)/.test(node.getAttribute('class') || ''),
+  replacement: (_content, node) => {
+    const el = node as HTMLElement;
+    const codeCell = el.querySelector('td.code') ?? el;
+    const code = (codeCell.textContent ?? '').replace(/\n+$/, '');
+    return `\n\n\`\`\`\n${code}\n\`\`\`\n\n`;
+  },
+});
 
 const DEFAULT_NAMESPACE = 'default';
 const TECHDOCS_MAX_CHARS = 8_000;

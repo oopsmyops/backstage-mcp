@@ -3,7 +3,6 @@ import { useApi } from '@backstage/frontend-plugin-api';
 import { assistantApiRef } from '../api/AssistantApi';
 import type {
   DisplayMessage,
-  MessagePart,
   SseEvent,
   VcsTokens,
   ConversationMessage,
@@ -14,7 +13,7 @@ import {
   loadSelectedModel,
   saveSelectedModel,
 } from '../util/storage';
-import { cardsFromToolResultText } from '../util/toolResultToCard';
+import { applySseEvent } from './messageReducer';
 
 export interface OAuthRequest {
   provider: string;
@@ -33,21 +32,6 @@ const MAX_HISTORY_TOOL_ARGUMENT_CHARS = 2_000;
 
 function nextId(): string {
   return `msg-${Date.now()}-${++messageCounter}`;
-}
-
-/** Append streamed text to the trailing text part (or start a new one). */
-function appendTextPart(
-  parts: MessagePart[] | undefined,
-  text: string,
-): MessagePart[] {
-  const arr = parts ? [...parts] : [];
-  const last = arr[arr.length - 1];
-  if (last && last.type === 'text') {
-    arr[arr.length - 1] = { type: 'text', text: last.text + text };
-  } else {
-    arr.push({ type: 'text', text });
-  }
-  return arr;
 }
 
 export function useAssistant(conversationId: string) {
@@ -141,79 +125,16 @@ export function useAssistant(conversationId: string) {
             model: selectedModelRef.current || undefined,
           },
           (event: SseEvent) => {
+            if (event.type === 'oauth_required') {
+              setOauthRequest({
+                provider: event.provider,
+                scopes: event.scopes,
+              });
+            }
             setMessages(prev => {
               const updated = [...prev];
-              const last = { ...updated[updated.length - 1] };
-
-              switch (event.type) {
-                case 'text_delta':
-                  last.content += event.content;
-                  last.parts = appendTextPart(last.parts, event.content);
-                  break;
-                case 'tool_call':
-                  last.toolCalls = [
-                    ...(last.toolCalls ?? []),
-                    {
-                      id: event.toolCallId,
-                      name: event.toolName,
-                      arguments: event.arguments,
-                      pending: true,
-                    },
-                  ];
-                  break;
-                case 'tool_result': {
-                  const calls = [...(last.toolCalls ?? [])];
-                  const idx = calls.findIndex(
-                    tc => tc.name === event.toolName && tc.pending,
-                  );
-                  if (idx >= 0) {
-                    calls[idx] = {
-                      ...calls[idx],
-                      result: event.content,
-                      pending: false,
-                    };
-                  }
-                  last.toolCalls = calls;
-                  // Build rich cards client-side from the tool result — no LLM
-                  // round-trip — and append them as parts in arrival order.
-                  const built = cardsFromToolResultText(
-                    event.toolName,
-                    event.content,
-                  );
-                  if (built.length) {
-                    last.parts = [
-                      ...(last.parts ?? []),
-                      ...built.map(card => ({ type: 'card' as const, card })),
-                    ];
-                  }
-                  break;
-                }
-                case 'ui_render':
-                  // The model's prose lives in its streamed reply; ignore
-                  // render_ui *text* cards (they only duplicate that text).
-                  // Keep structured synthesized cards (form, table, …).
-                  if (event.card.type !== 'text') {
-                    last.parts = [
-                      ...(last.parts ?? []),
-                      { type: 'card', card: event.card },
-                    ];
-                  }
-                  break;
-                case 'error':
-                  last.content += `\n\n**Error:** ${event.message}`;
-                  last.parts = appendTextPart(
-                    last.parts,
-                    `\n\n**Error:** ${event.message}`,
-                  );
-                  break;
-                case 'done':
-                  break;
-                case 'oauth_required':
-                  setOauthRequest({ provider: event.provider, scopes: event.scopes });
-                  break;
-              }
-
-              updated[updated.length - 1] = last;
+              const lastIndex = updated.length - 1;
+              updated[lastIndex] = applySseEvent(updated[lastIndex], event);
               return updated;
             });
           },

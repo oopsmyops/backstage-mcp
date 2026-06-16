@@ -1,6 +1,6 @@
 {
   "name": "@oopsmyops/backstage-plugin-assistant-backend",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Backstage backend plugin providing an AI assistant with catalog, scaffolder, and TechDocs tools",
   "license": "MIT",
   "main": "src/index.ts",
