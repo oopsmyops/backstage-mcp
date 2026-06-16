@@ -4,6 +4,7 @@ import {
 } from 'ai';
 import { MockLanguageModelV3 } from 'ai/test';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { createAzure } from '@ai-sdk/azure';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type {
@@ -112,12 +113,6 @@ export function createModelRegistry(
       };
       registry.register(info, buildModel(mc));
     }
-  } else if (root) {
-    // ponytail: legacy single-provider compat shim. Synthesizes one model from
-    // the old assistant.llm.provider / bedrock / litellm keys so existing
-    // deployments keep working. Remove once all configs use models[].
-    const legacy = buildLegacyModel(root, logger);
-    if (legacy) registry.register(legacy.info, legacy.model);
   }
 
   if (registry.size === 0) {
@@ -155,13 +150,14 @@ function buildModel(mc: Config): LanguageModel {
   const provider = mc.getString('provider');
   switch (provider) {
     case 'bedrock': {
+      const apiKey =
+        mc.getOptionalString('apiKey') ??
+        process.env.AWS_BEARER_TOKEN_BEDROCK;
       const bedrock = createAmazonBedrock({
         region: mc.getOptionalString('region') ?? 'us-east-1',
-        // apiKey maps to a Bedrock API key (AWS_BEARER_TOKEN_BEDROCK).
-        // When omitted the AWS credential chain (IAM role / env) is used.
-        apiKey:
-          mc.getOptionalString('apiKey') ??
-          process.env.AWS_BEARER_TOKEN_BEDROCK,
+        ...(apiKey
+          ? { apiKey }
+          : { credentialProvider: fromNodeProviderChain() }),
       });
       return bedrock(requireModelName(mc));
     }
@@ -194,61 +190,6 @@ function buildModel(mc: Config): LanguageModel {
           '(expected bedrock | azure | openai-compatible | mock)',
       );
   }
-}
-
-function buildLegacyModel(
-  root: Config,
-  logger: LoggerService,
-): ModelEntry | undefined {
-  const provider = root.getOptionalString('provider');
-  if (!provider || provider === 'mock') return undefined;
-
-  if (provider === 'bedrock') {
-    const modelId =
-      root.getOptionalString('bedrock.modelId') ??
-      'anthropic.claude-sonnet-4-6';
-    logger.warn(
-      'Using legacy assistant.llm.bedrock config; migrate to assistant.llm.models[].',
-    );
-    const bedrock = createAmazonBedrock({
-      region: root.getOptionalString('bedrock.region') ?? 'us-east-1',
-      apiKey:
-        root.getOptionalString('bedrock.bearerToken') ??
-        process.env.AWS_BEARER_TOKEN_BEDROCK,
-    });
-    return {
-      info: {
-        id: 'default',
-        label: `Bedrock ${modelId}`,
-        provider: 'bedrock',
-        default: true,
-      },
-      model: bedrock(modelId),
-    };
-  }
-
-  if (provider === 'litellm') {
-    const model = root.getString('litellm.model');
-    logger.warn(
-      'Using legacy assistant.llm.litellm config; migrate to assistant.llm.models[].',
-    );
-    const compatible = createOpenAICompatible({
-      name: 'litellm',
-      baseURL: root.getString('litellm.baseUrl'),
-      apiKey: root.getOptionalString('litellm.apiKey'),
-    });
-    return {
-      info: {
-        id: 'default',
-        label: model,
-        provider: 'openai-compatible',
-        default: true,
-      },
-      model: compatible(model),
-    };
-  }
-
-  return undefined;
 }
 
 /**
