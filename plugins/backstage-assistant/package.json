@@ -1,6 +1,6 @@
 {
   "name": "@oopsmyops/backstage-plugin-assistant",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Backstage frontend plugin providing an AI chat assistant widget with auto-discovery support",
   "license": "MIT",
   "main": "src/index.ts",

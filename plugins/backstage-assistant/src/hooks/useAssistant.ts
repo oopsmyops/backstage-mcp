@@ -5,7 +5,6 @@ import type {
   DisplayMessage,
   SseEvent,
   VcsTokens,
-  ConversationMessage,
   ModelInfo,
 } from '../api/types';
 import {
@@ -14,6 +13,7 @@ import {
   saveSelectedModel,
 } from '../util/storage';
 import { applySseEvent } from './messageReducer';
+import { toConversationHistory } from './conversationHistory';
 
 export interface OAuthRequest {
   provider: string;
@@ -25,10 +25,6 @@ interface SendOptions {
 }
 
 let messageCounter = 0;
-const MAX_HISTORY_MESSAGES = 12;
-const MAX_HISTORY_CONTENT_CHARS = 4_000;
-const MAX_HISTORY_TOOL_RESULT_CHARS = 1_500;
-const MAX_HISTORY_TOOL_ARGUMENT_CHARS = 2_000;
 
 function nextId(): string {
   return `msg-${Date.now()}-${++messageCounter}`;
@@ -210,65 +206,3 @@ export function useAssistant(conversationId: string) {
   };
 }
 
-function toConversationHistory(messages: DisplayMessage[]): ConversationMessage[] {
-  const history: ConversationMessage[] = [];
-  const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-
-  for (const message of recentMessages) {
-    if (message.role === 'user') {
-      history.push({
-        role: 'user',
-        content: truncateForHistory(message.content, MAX_HISTORY_CONTENT_CHARS),
-      });
-      continue;
-    }
-
-    const toolCalls = message.toolCalls
-      ?.filter(toolCall => toolCall.id)
-      .map(toolCall => ({
-        id: toolCall.id,
-        name: toolCall.name,
-        arguments: truncateToolArguments(toolCall.arguments),
-      }));
-
-    history.push({
-      role: 'assistant',
-      content: truncateForHistory(message.content, MAX_HISTORY_CONTENT_CHARS),
-      ...(toolCalls?.length ? { toolCalls } : {}),
-    });
-
-    for (const toolCall of message.toolCalls ?? []) {
-      if (!toolCall.id) continue;
-      if (toolCall.result !== undefined) {
-        history.push({
-          role: 'tool',
-          content: truncateForHistory(
-            toolCall.result,
-            MAX_HISTORY_TOOL_RESULT_CHARS,
-          ),
-          toolCallId: toolCall.id,
-        });
-      }
-    }
-  }
-
-  return history;
-}
-
-function truncateForHistory(value: string, maxChars: number): string {
-  if (value.length <= maxChars) return value;
-  return `${value.slice(0, maxChars)}\n\n[...truncated for request size]`;
-}
-
-function truncateToolArguments(
-  args: Record<string, unknown>,
-): Record<string, unknown> {
-  const text = JSON.stringify(args);
-  if (text.length <= MAX_HISTORY_TOOL_ARGUMENT_CHARS) {
-    return args;
-  }
-  return {
-    truncated: true,
-    summary: text.slice(0, MAX_HISTORY_TOOL_ARGUMENT_CHARS),
-  };
-}

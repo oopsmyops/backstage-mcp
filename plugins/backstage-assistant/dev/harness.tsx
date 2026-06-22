@@ -67,7 +67,7 @@ const ownedComponents: SseEvent[] = [
       ],
     }),
   },
-  { type: 'text_delta', content: 'You own **5 components** across 2 groups — 3 owned by *developers*, 2 by *kubernetes-team*.' },
+  { type: 'text_delta', content: 'You own **5 components** across 2 groups. Notably, test-azure-vm is infra, while python-dummy-app and dummy-go-app are services — these prose names should be clickable too, not just the table rows.' },
   // The model tries to re-tabulate everything (no links). This MUST be dropped.
   {
     type: 'ui_render',

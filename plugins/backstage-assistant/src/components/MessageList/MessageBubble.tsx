@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Typography, Box, CircularProgress, Collapse, makeStyles } from '@material-ui/core';
 import { CheckCircle as CheckCircleIcon, ExpandMore as ExpandMoreIcon } from '@material-ui/icons';
 import ReactMarkdown from 'react-markdown';
 import type { DisplayMessage } from '../../api/types';
 import { replaceEntityRefsWithLinks } from '../../util/entityLinkParser';
+import {
+  collectEntityLinks,
+  linkifyEntityNames,
+} from '../../util/entityNameLinks';
 import { AssistantCardRenderer } from './AssistantCardRenderer';
 
 const useStyles = makeStyles(theme => ({
@@ -152,9 +156,18 @@ export function MessageBubble({ message, onSubmitCard }: MessageBubbleProps) {
   const classes = useStyles();
   const isUser = message.role === 'user';
 
-  const processedContent = isUser
-    ? message.content
-    : replaceEntityRefsWithLinks(message.content);
+  // Names mentioned in prose ("payment-service") aren't full refs, so the ref
+  // linkifier misses them. Harvest the real entities from this message's tool
+  // results and link bare-name mentions to the same catalog URLs as the table.
+  const entityNameLinks = useMemo(
+    () => (isUser ? new Map<string, string>() : collectEntityLinks(message.toolCalls)),
+    [isUser, message.toolCalls],
+  );
+
+  const linkify = (text: string): string =>
+    linkifyEntityNames(replaceEntityRefsWithLinks(text), entityNameLinks);
+
+  const processedContent = isUser ? message.content : linkify(message.content);
 
   return (
     <Box
@@ -185,7 +198,7 @@ export function MessageBubble({ message, onSubmitCard }: MessageBubbleProps) {
               ? message.parts.map((part, index) =>
                   part.type === 'text' ? (
                     <ReactMarkdown key={index}>
-                      {replaceEntityRefsWithLinks(part.text)}
+                      {linkify(part.text)}
                     </ReactMarkdown>
                   ) : (
                     <div className={classes.uiBlock} key={index}>
